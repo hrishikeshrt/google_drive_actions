@@ -30,9 +30,11 @@ References
 import io
 import os
 import json
+
 # import time
 import enum
 import logging
+
 # import mimetypes
 # import multiprocessing as mp
 from typing import List, Dict
@@ -61,7 +63,22 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 ###############################################################################
 
-TYPE_FOLDER = "application/vnd.google-apps.folder"
+TYPE_GOOGLE_FILE = "application/vnd.google-apps.file"
+TYPE_GOOGLE_FOLDER = "application/vnd.google-apps.folder"
+TYPE_GOOGLE_SHORTCUT = "application/vnd.google-apps.shortcut"
+
+TYPE_GOOGLE_SPREADSHEET = "application/vnd.google-apps.spreadsheet"
+TYPE_GOOGLE_DOCUMENT = "application/vnd.google-apps.document"
+TYPE_GOOGLE_PRESENTATION = "application/vnd.google-apps.presentation"
+
+TYPE_GOOGLE_PHOTO = "application/vnd.google-apps.photo"
+TYPE_GOOGLE_AUDIO = "application/vnd.google-apps.audio"
+TYPE_GOOGLE_VIDEO = "application/vnd.google-apps.video"
+
+TYPE_GOOGLE_FORM = "application/vnd.google-apps.form"
+TYPE_GOOGLE_SITE = "application/vnd.google-apps.site"
+
+TYPE_GOOGLE_SCRIPT = "application/vnd.google-apps.script"
 
 ###############################################################################
 
@@ -228,13 +245,28 @@ class GoogleDriveApplication:
 
         if is_folder is not None:
             comparison_sign = "=" if is_folder else "!="
-            conditions.append(f"mimeType {comparison_sign} '{TYPE_FOLDER}'")
+            conditions.append(
+                f"mimeType {comparison_sign} '{TYPE_GOOGLE_FOLDER}'"
+            )
 
         if parent_id is not None:
             conditions.append(f"'{parent_id}' in parents")
 
         query_string = " and ".join(conditions)
         return self.search_files(query_string)
+
+    # ----------------------------------------------------------------------- #
+
+    @retry()
+    def create_folder(self, name):
+        file_metadata = {"name": name, "mimeType": TYPE_GOOGLE_FOLDER}
+        folder = (
+            self.drive_service.files()
+            .create(body=file_metadata, fields="id, name, parents, mimeType")
+            .execute()
+        )
+
+        return folder.get("id")
 
     def list_folder(
         self, folder_id: str, recursive: bool = False, prefix: str = "."
@@ -267,7 +299,7 @@ class GoogleDriveApplication:
             LOGGER.info(file["path"])
             result.append(file)
 
-            is_folder = file.get("mimeType") == TYPE_FOLDER
+            is_folder = file.get("mimeType") == TYPE_GOOGLE_FOLDER
             if is_folder and recursive:
                 subfiles = self.list_folder(
                     file_id,
@@ -291,7 +323,7 @@ class GoogleDriveApplication:
         """
         files = self.list_folder(folder_id, recursive=True, prefix=output_path)
         for file in tqdm(files):
-            is_folder = file.get("mimeType") == TYPE_FOLDER
+            is_folder = file.get("mimeType") == TYPE_GOOGLE_FOLDER
             if not is_folder:
                 self.download_file(file.get("id"), file.get("path"))
 
@@ -320,7 +352,11 @@ class GoogleDriveApplication:
         media = MediaFileUpload(local_path, resumable=True)
         file = (
             self.drive_service.files()
-            .create(body=file_metadata, media_body=media, fields="id, name")
+            .create(
+                body=file_metadata,
+                media_body=media,
+                fields="id, name, parents, mimeType",
+            )
             .execute()
         )
         file_id = file.get("id")
