@@ -333,7 +333,7 @@ class GoogleDriveApplication:
             mode="w",
             encoding="utf-8",
         ) as f:
-            json.dump(files, f, ident=2, ensure_ascii=False)
+            json.dump(files, f, indent=2, ensure_ascii=False)
 
         for file in tqdm(files):
             is_folder = file.get("mimeType") == TYPE_GOOGLE_FOLDER
