@@ -310,7 +310,9 @@ class GoogleDriveApplication:
 
         return result
 
-    def download_folder(self, folder_id: str, output_path: str = "."):
+    def download_folder(
+        self, folder_id: str, output_path: str = ".", resume: bool = True
+    ):
         """Download entire folder
 
         Parameters
@@ -320,12 +322,36 @@ class GoogleDriveApplication:
         output_path : str, optional
             Local path of the desired download location
             The default is "."
+        resume : bool, optional
+            If True, resume download
+            (i.e. do not download if a file exists at the file['path'])
         """
         files = self.list_folder(folder_id, recursive=True, prefix=output_path)
+        skipped = []
+        with open(
+            os.path.join(output_path, f"{folder_id}.filelist.json"),
+            mode="w",
+            encoding="utf-8",
+        ) as f:
+            json.dump(files, f, ident=2, ensure_ascii=False)
+
         for file in tqdm(files):
             is_folder = file.get("mimeType") == TYPE_GOOGLE_FOLDER
             if not is_folder:
-                self.download_file(file.get("id"), file.get("path"))
+                if os.path.isfile(file.get("path")):
+                    continue
+                try:
+                    self.download_file(file.get("id"), file.get("path"))
+                except Exception:
+                    LOGGER.error(f"Couldn't download {file.get('id')}")
+                    skipped.append(file)
+
+        with open(
+            os.path.join(output_path, f"{folder_id}.skipped.json"),
+            mode="w",
+            encoding="utf-8",
+        ) as f:
+            json.dump(skipped, f, indent=2, ensure_ascii=False)
 
     @retry()
     def upload_file(

@@ -41,6 +41,7 @@ RETRY_ERRORS = {
         "App cannot be used within the authenticated user's domain",
     ],
     404: ["File not found"],
+    416: ["Request range not satisfiable"],
     429: ["Too many requests"],
     500: ["Backend error"],
     502: ["Bad Gateway"],
